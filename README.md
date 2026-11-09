@@ -1,4 +1,4 @@
-# Vigil (working name)
+# Night Watch
 
 > **Prototype — not a medical device.** It does not diagnose anything.
 > If someone has chest pain, is overheating or having a seizure, **call 999**.
@@ -30,13 +30,32 @@ Sensors ──► Feature extraction ──► Filters ──► Risk engine ─
 
 | Folder | What it is |
 |---|---|
-| `VigilCore/` | Swift package with all the logic and tests. Plain Swift, no Apple-only frameworks, so tests run on a Mac in seconds. |
-| `Vigil Watch App/` | The watchOS app: sensors (HealthKit, CoreMotion) and screens. |
-| `Vigil (iPhone)/` | A minimal companion app that only receives CSV logs from the watch. |
+| `NightWatchCore/` | Swift package with all the logic and its tests. Plain Swift, no Apple-only frameworks. |
+| `NightWatch Watch App/` | The watchOS app: sensors (HealthKit, CoreMotion) and screens. |
+| `NightWatch/` | Minimal iPhone companion. It only receives CSV logs from the watch. |
+| `Config/` | Watch app Info.plist additions and entitlements (HealthKit, workout background mode). |
+| `NightWatch.xcodeproj` | The Xcode project. Needs **Xcode 16 or newer**. |
+
+The project uses Xcode's *synchronized folders*: any file placed in
+`NightWatch Watch App/` or `NightWatch/` is automatically part of that app.
+
+## Getting started
+
+1. Open `NightWatch.xcodeproj` in Xcode.
+2. For **both** targets, open *Signing & Capabilities* and choose your Team.
+3. Pick the **NightWatch Watch App** scheme and an Apple Watch (simulator or
+   your own watch), then press ▶︎ Run.
+
+Run the logic tests in Terminal:
+
+```bash
+cd NightWatchCore
+swift test
+```
 
 ## Build stages
 
-- [ ] 1. Project setup, HealthKit permissions
+- [x] 1. Project setup, HealthKit permissions
 - [ ] 2. Live heart rate (monitoring mode)
 - [ ] 3. Motion features (activity, tremor, arm orientation)
 - [ ] 4. Baseline calibration
@@ -47,5 +66,5 @@ Sensors ──► Feature extraction ──► Filters ──► Risk engine ─
 ## Requirements
 
 - Apple Watch Series 10 (watchOS 11 or later)
-- Paired iPhone
-- Mac with Xcode
+- iPhone on iOS 18 or later
+- Mac with Xcode 16 or later

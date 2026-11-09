@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Night Watch reads your heart rate while monitoring, your daily resting heart rate to check its calibration, and your ECG results. Your data never leaves your watch and iPhone.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Night Watch runs a workout session while monitoring so your Apple Watch measures heart rate often. Monitoring sessions are discarded, not saved as workouts.</string>
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout-processing</string>
+	</array>
+</dict>
+</plist>
