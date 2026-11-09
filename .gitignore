@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Xcode user-specific files
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Exported logs (contain personal health data - never commit them)
+*.csv
+!VigilCore/Tests/**/*.csv
