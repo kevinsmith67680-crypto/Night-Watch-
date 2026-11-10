@@ -45,8 +45,23 @@ struct FeaturesPanel: View {
         if let expected = result.expectedHeartRateBPM {
             row("Expected", String(format: "%.0f bpm", expected) + (result.baselineIsCalibrated ? "" : " *"))
         }
-        if let excess = result.excessHeartRateBPM {
-            row("Excess", String(format: "%+.0f bpm", excess))
+        if let filtered = result.filtered {
+            // Smoothed by the Kalman filter.
+            row("Excess", String(format: "%+.0f bpm", filtered.excessBPM))
+            row("Trend", String(format: "%+.1f bpm/min", filtered.trendBPMPerMinute))
+            switch filtered.decision {
+            case .rejectedAsSpike:
+                Text("Spike ignored")
+                    .foregroundStyle(.orange)
+            case .restarted:
+                Text("Filter (re)started")
+                    .foregroundStyle(.secondary)
+            case .accepted, .missing:
+                EmptyView()
+            }
+        }
+        if let raw = result.excessHeartRateBPM {
+            row("Raw excess", String(format: "%+.0f bpm", raw))
         }
         if !result.baselineIsCalibrated && result.expectedHeartRateBPM != nil {
             Text("* rough default, not calibrated yet")

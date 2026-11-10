@@ -61,7 +61,7 @@ swift test
   - [x] 3a. Feature maths and tests (`NightWatchCore`)
   - [x] 3b. Real motion sensors on the watch
 - [x] 4. Baseline calibration
-- [ ] 5. Kalman filter for excess heart rate
+- [x] 5. Kalman filter for excess heart rate
 - [ ] 6. Placeholder traffic-light display
 - [ ] 7. CSV logging, export to iPhone, simulation scenarios, tests
 

@@ -12,11 +12,14 @@ import Foundation
 public struct MonitorConfig: Codable, Equatable, Sendable {
     public var features: FeatureConfig
     public var calibration: CalibrationConfig
+    public var kalman: KalmanConfig
 
     public init(features: FeatureConfig = FeatureConfig(),
-                calibration: CalibrationConfig = CalibrationConfig()) {
+                calibration: CalibrationConfig = CalibrationConfig(),
+                kalman: KalmanConfig = KalmanConfig()) {
         self.features = features
         self.calibration = calibration
+        self.kalman = kalman
     }
 
     /// The values the app uses unless you change them.
@@ -123,6 +126,51 @@ public struct CalibrationConfig: Codable, Equatable, Sendable {
     public var defaultBPMPerG: Double = 120
     public var defaultLagRiseSeconds: Double = 30
     public var defaultLagFallSeconds: Double = 120
+
+    public init() {}
+}
+
+/// Step 5: the Kalman filter that smooths excess heart rate.
+///
+/// It tracks two things: the excess heart rate itself and its TREND (how fast it
+/// is changing, in bpm per minute). Each 5-second measurement nudges both.
+public struct KalmanConfig: Codable, Equatable, Sendable {
+
+    // MARK: How much to trust each measurement ("measurement noise")
+
+    /// Typical error of one measurement at rest (bpm, 1 standard deviation),
+    /// used before calibration. Bigger = smoother but slower to respond.
+    public var measurementSDBPM: Double = 5
+    /// After calibration, use your own typical error (from the baseline) instead.
+    public var useCalibratedMeasurementSD: Bool = true
+    /// Never trust a measurement more than this (bpm), even if calibration says so.
+    public var minimumMeasurementSDBPM: Double = 2
+    /// Wrist heart rate is less reliable while moving, so the measurement error
+    /// grows by this many bpm per 1 g of activity. At 0.5 g (dancing) that is +10 bpm.
+    public var extraMeasurementSDPerG: Double = 20
+
+    // MARK: How quickly the trend may change ("process noise")
+
+    /// How much the trend (bpm per minute) is allowed to change in one minute
+    /// (1 standard deviation). Tested in simulation:
+    ///   0.2 → very steady at rest; a 2 bpm/min climb is noticed after about 3 min.
+    ///   0.3 → trend stays within about ±0.8 bpm/min at rest; climb noticed after about 2.5 min.
+    ///   0.5 → trend jitters about ±1.1 bpm/min at rest; climb noticed after about 2 min.
+    /// Bigger = reacts faster but jumpier.
+    public var trendChangePerMinute: Double = 0.3
+    /// How unsure the trend is at the very start (bpm per minute).
+    public var initialTrendSDBPMPerMinute: Double = 2
+
+    // MARK: Spike rejection
+
+    /// A measurement further than this many standard deviations from what the
+    /// filter expected is treated as a spike (e.g. strap slip) and ignored.
+    public var spikeGateSD: Double = 4
+    /// …unless this many in a row are "spikes": then it is a real change, and the
+    /// filter restarts from the new level (3 windows = 15 seconds).
+    public var acceptAfterConsecutiveRejections: Int = 3
+    /// After a gap with no heart rate longer than this (seconds), start afresh.
+    public var restartAfterGapSeconds: Double = 120
 
     public init() {}
 }
