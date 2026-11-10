@@ -30,7 +30,7 @@ Sensors ──► Feature extraction ──► Filters ──► Risk engine ─
 
 | Folder | What it is |
 |---|---|
-| `NightWatchCore/` | Swift package with all the logic and its tests. Plain Swift, no Apple-only frameworks. |
+| `NightWatchCore/` | Swift package with all the logic and its tests. Plain Swift, no Apple-only frameworks. **All tunable numbers are in `Sources/NightWatchCore/Config/MonitorConfig.swift`.** |
 | `NightWatch Watch App/` | The watchOS app: sensors (HealthKit, CoreMotion) and screens. |
 | `NightWatch/` | Minimal iPhone companion. It only receives CSV logs from the watch. |
 | `Config/` | Watch app Info.plist additions and entitlements (HealthKit, workout background mode). |
@@ -58,6 +58,8 @@ swift test
 - [x] 1. Project setup, HealthKit permissions
 - [x] 2. Live heart rate (monitoring mode)
 - [ ] 3. Motion features (activity, tremor, arm orientation)
+  - [x] 3a. Feature maths and tests (`NightWatchCore`)
+  - [ ] 3b. Real motion sensors on the watch
 - [ ] 4. Baseline calibration
 - [ ] 5. Kalman filter for excess heart rate
 - [ ] 6. Placeholder traffic-light display
