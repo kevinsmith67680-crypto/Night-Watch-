@@ -232,9 +232,9 @@ final class MonitoringPipelineTests: XCTestCase {
         let windows = readings.compactMap { pipeline.process($0) }
 
         XCTAssertEqual(windows.count, 2)
-        XCTAssertEqual(windows[0].heartRateBPM, 70)
-        XCTAssertEqual(windows[0].heartRateSampleCount, 5)
-        let motionFeatures = try XCTUnwrap(windows[0].motion)
+        XCTAssertEqual(windows[0].features.heartRateBPM, 70)
+        XCTAssertEqual(windows[0].features.heartRateSampleCount, 5)
+        let motionFeatures = try XCTUnwrap(windows[0].features.motion)
         XCTAssertTrue(motionFeatures.isStill)
         XCTAssertTrue(motionFeatures.qualityOK)
 

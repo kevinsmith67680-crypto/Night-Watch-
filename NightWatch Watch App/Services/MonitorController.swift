@@ -2,10 +2,12 @@ import Foundation
 import Combine
 import NightWatchCore
 
-/// Runs monitoring mode and publishes what the screen needs to show.
+/// Runs the sensors and publishes what the screens need to show.
 ///
-/// It owns the sensor sources, passes every reading into the processing
-/// pipeline, and publishes each finished 5-second window.
+/// Two modes share the same sensors:
+///  • monitoring: each 5-second window goes through the pipeline, which uses
+///    your saved baseline to work out expected and excess heart rate;
+///  • calibrating: each window is also recorded so a baseline can be learned.
 @MainActor
 final class MonitorController: ObservableObject {
 
@@ -17,16 +19,32 @@ final class MonitorController: ObservableObject {
         case failed(String)
     }
 
+    enum Mode: Equatable {
+        case monitoring
+        case calibrating
+    }
+
+    // MARK: Live session
+
     @Published private(set) var state: State = .idle
+    @Published private(set) var mode: Mode = .monitoring
     @Published private(set) var latestHeartRate: HeartRateSample?
     /// How many heart-rate readings arrived this session (to check how often they come).
     @Published private(set) var heartRateCount = 0
     @Published private(set) var startDate: Date?
     /// The most recent finished 5-second window.
-    @Published private(set) var latestWindow: WindowFeatures?
+    @Published private(set) var latestResult: WindowResult?
     @Published private(set) var windowCount = 0
     /// Explains why motion isn't available, e.g. in the simulator.
     @Published private(set) var motionNote: String?
+
+    // MARK: Calibration
+
+    /// Your saved baseline, or nil if you haven't calibrated yet.
+    @Published private(set) var baseline: BaselineModel?
+    @Published private(set) var calibrationProgress: CalibrationProgress
+    @Published private(set) var calibrationMessage: String?
+    @Published private(set) var isFitting = false
 
     var isActive: Bool {
         state == .starting || state == .running
@@ -36,12 +54,20 @@ final class MonitorController: ObservableObject {
     private let heartRateSource: WorkoutHeartRateSource
     private let motionSource: MotionSource
     private var pipeline: MonitoringPipeline
+    private var calibrator: BaselineCalibrator
+    private var unsavedCalibrationWindows = 0
 
     init(config: MonitorConfig = .standard) {
+        let savedBaseline = BaselineStore.loadBaseline()
+        let calibrator = BaselineCalibrator(config: config, points: BaselineStore.loadCalibrationPoints())
+
         self.config = config
-        heartRateSource = WorkoutHeartRateSource(healthStore: Health.store)
-        motionSource = MotionSource(sampleRateHz: config.features.motionSampleRateHz)
-        pipeline = MonitoringPipeline(config: config)
+        self.heartRateSource = WorkoutHeartRateSource(healthStore: Health.store)
+        self.motionSource = MotionSource(sampleRateHz: config.features.motionSampleRateHz)
+        self.pipeline = MonitoringPipeline(config: config, baseline: savedBaseline)
+        self.calibrator = calibrator
+        self.calibrationProgress = calibrator.progress
+        self.baseline = savedBaseline
 
         // The sources promise to call these on the main thread, so we can
         // handle them immediately and in order.
@@ -58,19 +84,21 @@ final class MonitorController: ObservableObject {
 
     // MARK: - Buttons
 
-    func start() {
+    func start(_ newMode: Mode) {
         switch state {
         case .idle, .failed: break
         default: return
         }
+        mode = newMode
         state = .starting
         latestHeartRate = nil
         heartRateCount = 0
         startDate = nil
-        latestWindow = nil
+        latestResult = nil
         windowCount = 0
         motionNote = nil
-        pipeline = MonitoringPipeline(config: config)
+        calibrationMessage = nil
+        pipeline = MonitoringPipeline(config: config, baseline: baseline)
 
         do {
             try heartRateSource.start { [weak self] reading in
@@ -88,6 +116,36 @@ final class MonitorController: ObservableObject {
         heartRateSource.stop()
     }
 
+    /// Calculates the baseline from everything recorded so far and saves it.
+    func fitCalibration() {
+        guard !isFitting, !isActive else { return }
+        isFitting = true
+        calibrationMessage = nil
+        Task {
+            let appleResting = await RestingHeartRateReader.latest(from: Health.store)
+            do {
+                let result = try calibrator.fit(appleRestingHeartRateBPM: appleResting)
+                BaselineStore.save(baseline: result.model)
+                baseline = result.model
+                calibrationMessage = (["Baseline saved."] + result.warnings).joined(separator: " ")
+            } catch {
+                calibrationMessage = String(describing: error)
+            }
+            isFitting = false
+        }
+    }
+
+    /// Deletes all calibration recordings and the saved baseline.
+    func resetCalibration() {
+        guard !isActive else { return }
+        BaselineStore.deleteAll()
+        calibrator = BaselineCalibrator(config: config)
+        calibrationProgress = calibrator.progress
+        unsavedCalibrationWindows = 0
+        baseline = nil
+        calibrationMessage = "Calibration deleted."
+    }
+
     // MARK: - Events
 
     /// Every reading from every sensor comes through here.
@@ -96,15 +154,30 @@ final class MonitorController: ObservableObject {
             latestHeartRate = sample
             heartRateCount += 1
         }
-        if let window = pipeline.process(reading) {
-            publish(window)
+        if let result = pipeline.process(reading) {
+            publish(result)
         }
     }
 
-    private func publish(_ window: WindowFeatures) {
-        latestWindow = window
+    private func publish(_ result: WindowResult) {
+        latestResult = result
         windowCount += 1
+
+        if mode == .calibrating {
+            if calibrator.add(result.features) {
+                unsavedCalibrationWindows += 1
+            }
+            calibrationProgress = calibrator.progress
+            if unsavedCalibrationWindows >= 12 {   // save about once a minute
+                saveCalibrationPoints()
+            }
+        }
         // Later steps: Kalman filter, risk engine and CSV logging hook in here.
+    }
+
+    private func saveCalibrationPoints() {
+        BaselineStore.save(calibrationPoints: calibrator.points)
+        unsavedCalibrationWindows = 0
     }
 
     private func sessionDidStart() {
@@ -125,6 +198,9 @@ final class MonitorController: ObservableObject {
         motionSource.stop()
         if let last = pipeline.finish() {
             publish(last)
+        }
+        if mode == .calibrating {
+            saveCalibrationPoints()
         }
         startDate = nil
         if case .failed = state { return }   // keep the error message on screen

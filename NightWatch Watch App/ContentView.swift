@@ -1,29 +1,23 @@
 import SwiftUI
 import NightWatchCore
 
-/// The main watch screen.
-/// Checks Health permission, then shows monitoring mode. Later steps add
-/// calibration, the traffic light and the simulator.
+/// The app's first screen: asks for Health access, then shows the home menu.
 struct ContentView: View {
     @StateObject private var health = HealthKitAuthorizer()
     @StateObject private var monitor = MonitorController()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                Text("Night Watch")
-                    .font(.headline)
-
-                permissionSection
-
-                DisclaimerBanner()
+        Group {
+            if health.status == .ready {
+                HomeView(monitor: monitor)
+            } else {
+                PermissionView(health: health)
             }
-            .padding(.horizontal, 4)
         }
-        // Check permission when the screen first appears...
+        // Check permission when the app opens...
         .task { await health.refreshStatus() }
-        // ...and again whenever the app comes back to the front,
+        // ...and again whenever it comes back to the front,
         // in case the user changed it in Settings meanwhile.
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -31,11 +25,28 @@ struct ContentView: View {
             }
         }
     }
+}
+
+/// Shown until Health access is set up.
+private struct PermissionView: View {
+    @ObservedObject var health: HealthKitAuthorizer
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 10) {
+                Text("Night Watch")
+                    .font(.headline)
+                message
+                DisclaimerBanner()
+            }
+            .padding(.horizontal, 4)
+        }
+    }
 
     @ViewBuilder
-    private var permissionSection: some View {
+    private var message: some View {
         switch health.status {
-        case .checking:
+        case .checking, .ready:
             ProgressView()
 
         case .unavailable:
@@ -49,9 +60,6 @@ struct ContentView: View {
             Button("Allow Health access") {
                 Task { await health.requestAccess() }
             }
-
-        case .ready:
-            MonitorView(monitor: monitor)
 
         case .workoutDenied:
             Text("Workout permission is off, so monitoring can't run. "

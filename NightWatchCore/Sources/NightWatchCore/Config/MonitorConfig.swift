@@ -11,9 +11,12 @@ import Foundation
 /// risk rules.
 public struct MonitorConfig: Codable, Equatable, Sendable {
     public var features: FeatureConfig
+    public var calibration: CalibrationConfig
 
-    public init(features: FeatureConfig = FeatureConfig()) {
+    public init(features: FeatureConfig = FeatureConfig(),
+                calibration: CalibrationConfig = CalibrationConfig()) {
         self.features = features
+        self.calibration = calibration
     }
 
     /// The values the app uses unless you change them.
@@ -71,6 +74,55 @@ public struct FeatureConfig: Codable, Equatable, Sendable {
     /// Forearm angle at or below which it counts as "horizontal", e.g. resting
     /// on a table or lap, or lying down. The watch alone can't tell these apart.
     public var forearmHorizontalUpToDegrees: Double = 30
+
+    public init() {}
+}
+
+/// Step 4: learning your personal baseline,
+/// expected heart rate = resting heart rate + k × (recent activity).
+public struct CalibrationConfig: Codable, Equatable, Sendable {
+
+    // MARK: How much data is needed
+
+    /// Minimum usable recording, in minutes, before a baseline can be calculated.
+    /// Spread it over 2–4 sessions on normal days.
+    public var minimumTotalMinutes: Double = 60
+    /// Of which at least this many minutes sitting or standing quietly
+    /// (pins down the resting heart rate)…
+    public var minimumStillMinutes: Double = 20
+    /// …and at least this many minutes active (pins down k).
+    public var minimumActiveMinutes: Double = 10
+    /// Activity (g) at or above which a window counts as "active": brisk walking or more.
+    public var activeThresholdG: Double = 0.1
+
+    // MARK: Fitting
+
+    /// The first seconds of each recording are left out of the fit, while the
+    /// heart-rate lag settles.
+    public var warmUpSeconds: Double = 60
+    /// A pause longer than this (seconds) between usable windows starts a new segment.
+    public var maxGapSeconds: Double = 30
+    /// Heart rate follows movement with a delay: it rises over roughly 15–60 s
+    /// and falls back more slowly, over 1–4 minutes. Calibration tries every pair
+    /// below and keeps whichever fits your data best.
+    public var lagRiseCandidatesSeconds: [Double] = [15, 30, 60]
+    public var lagFallCandidatesSeconds: [Double] = [60, 120, 240]
+    /// Readings further than this many standard deviations from the fitted line
+    /// are treated as glitches (e.g. strap slips) and left out.
+    public var outlierCutoffSD: Double = 3
+    /// Warn if the calibrated resting heart rate differs from Apple's own daily
+    /// resting heart rate by more than this many bpm.
+    public var appleDisagreementWarningBPM: Double = 15
+
+    // MARK: Used until you have calibrated
+
+    /// Rough population defaults. Monitoring uses them until calibration is done,
+    /// so expected heart rate will be less accurate until then.
+    public var defaultRestingBPM: Double = 70
+    /// bpm added per 1 g of activity: about +24 bpm walking (0.2 g), +60 dancing (0.5 g).
+    public var defaultBPMPerG: Double = 120
+    public var defaultLagRiseSeconds: Double = 30
+    public var defaultLagFallSeconds: Double = 120
 
     public init() {}
 }

@@ -1,9 +1,10 @@
 import SwiftUI
 import NightWatchCore
 
-/// Shows the latest 5-second motion results: activity, tremor and arm angle.
+/// Shows the latest 5-second results: expected and excess heart rate,
+/// activity, tremor and arm angle.
 struct FeaturesPanel: View {
-    let window: WindowFeatures?
+    let result: WindowResult?
     let note: String?
 
     var body: some View {
@@ -13,7 +14,11 @@ struct FeaturesPanel: View {
                     .foregroundStyle(.orange)
             }
 
-            if let motion = window?.motion {
+            if let result {
+                heartRateRows(result)
+            }
+
+            if let motion = result?.features.motion {
                 row("Activity", String(format: "%.3f g", motion.activityG)
                                 + (motion.isStill ? " · still" : " · moving"))
 
@@ -33,6 +38,20 @@ struct FeaturesPanel: View {
         }
         .font(.footnote)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func heartRateRows(_ result: WindowResult) -> some View {
+        if let expected = result.expectedHeartRateBPM {
+            row("Expected", String(format: "%.0f bpm", expected) + (result.baselineIsCalibrated ? "" : " *"))
+        }
+        if let excess = result.excessHeartRateBPM {
+            row("Excess", String(format: "%+.0f bpm", excess))
+        }
+        if !result.baselineIsCalibrated && result.expectedHeartRateBPM != nil {
+            Text("* rough default, not calibrated yet")
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func row(_ title: String, _ value: String) -> some View {
