@@ -24,6 +24,18 @@ public enum SafetyText {
         "Strong warning pattern. If you feel unwell, have chest pain, are overheating "
         + "or having a seizure, call 999 now."
 
+    /// Short heading for each traffic-light level.
+    public static func title(for level: RiskLevel) -> String {
+        switch level {
+        case .green: return "No unusual pattern"
+        case .amber: return "Unusual pattern"
+        case .red: return "Warning pattern"
+        }
+    }
+
+    /// Shown above the traffic light so it's never mistaken for a finished product.
+    public static let temporaryRulesLabel = "TEMPORARY RULES · PROTOTYPE"
+
     public static func message(for level: RiskLevel) -> String {
         switch level {
         case .green: return green

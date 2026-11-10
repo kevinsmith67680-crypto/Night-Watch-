@@ -13,13 +13,16 @@ public struct MonitorConfig: Codable, Equatable, Sendable {
     public var features: FeatureConfig
     public var calibration: CalibrationConfig
     public var kalman: KalmanConfig
+    public var risk: RiskConfig
 
     public init(features: FeatureConfig = FeatureConfig(),
                 calibration: CalibrationConfig = CalibrationConfig(),
-                kalman: KalmanConfig = KalmanConfig()) {
+                kalman: KalmanConfig = KalmanConfig(),
+                risk: RiskConfig = RiskConfig()) {
         self.features = features
         self.calibration = calibration
         self.kalman = kalman
+        self.risk = risk
     }
 
     /// The values the app uses unless you change them.
@@ -171,6 +174,82 @@ public struct KalmanConfig: Codable, Equatable, Sendable {
     public var acceptAfterConsecutiveRejections: Int = 3
     /// After a gap with no heart rate longer than this (seconds), start afresh.
     public var restartAfterGapSeconds: Double = 120
+
+    public init() {}
+}
+
+/// Step 6: TEMPORARY traffic-light rules, used until the IMM filter replaces them.
+///
+/// ⚠️ These numbers are educated guesses for a prototype, NOT clinical
+/// thresholds. Tune them with your CSV logs and the simulator (Step 7).
+///
+/// "Still" means activity below `FeatureConfig.stillnessThresholdG`, allowing
+/// brief movements (see `maxMovingWindowsInStillPeriod`).
+/// "Excess" and "trend" are the Kalman-filtered values from Step 5.
+public struct RiskConfig: Codable, Equatable, Sendable {
+
+    // MARK: Stillness
+
+    /// Up to this many moving windows in a row (2 × 5 s = 10 s, e.g. scratching
+    /// your nose) don't end a still period.
+    public var maxMovingWindowsInStillPeriod: Int = 2
+
+    // MARK: Amber
+
+    /// Amber if still for `amberStillMinutes` AND excess ≥ this AND rising…
+    public var amberExcessRisingBPM: Double = 20
+    /// …where "rising" means a trend of at least this many bpm per minute.
+    public var amberRisingTrendBPMPerMinute: Double = 0.5
+    /// Amber if still for `amberStillMinutes` AND excess ≥ this AND not falling.
+    public var amberExcessSteadyBPM: Double = 25
+    public var amberStillMinutes: Double = 5
+    /// Backstop that works even without calibration:
+    /// amber if heart rate ≥ this while still for `amberAbsoluteStillMinutes`.
+    public var amberAbsoluteHeartRateBPM: Double = 110
+    public var amberAbsoluteStillMinutes: Double = 10
+
+    // MARK: Red
+
+    /// Red if still for `redStillMinutes` AND excess ≥ this AND
+    /// (rising at least `redRisingTrendBPMPerMinute` OR tremor raised).
+    public var redExcessBPM: Double = 35
+    public var redRisingTrendBPMPerMinute: Double = 1.0
+    /// Red if still AND excess ≥ this AND not falling, whatever the trend or tremor.
+    public var redExcessAloneBPM: Double = 45
+    public var redStillMinutes: Double = 5
+    /// Backstop: red if heart rate ≥ this while still for `redAbsoluteStillMinutes`.
+    public var redAbsoluteHeartRateBPM: Double = 140
+    public var redAbsoluteStillMinutes: Double = 5
+
+    // MARK: Shared
+
+    /// "Not falling" means a trend above this (bpm per minute). A clearly falling
+    /// excess, e.g. recovering after exercise, never raises the level.
+    public var notFallingTrendBPMPerMinute: Double = -0.5
+    /// Tremor counts as raised when, over the last `tremorLookbackMinutes`, at
+    /// least half the windows had reliable tremor readings and their medians are
+    /// at or above both of these. PLACEHOLDER values: tune from your own logs.
+    public var tremorRaisedDegPerSec: Double = 2.0
+    public var tremorMinimumRhythmicity: Double = 0.5
+    public var tremorLookbackMinutes: Double = 2
+
+    // MARK: Behaviour
+
+    /// Once raised, the light only steps down after the warning signs have been
+    /// clear for this long, so it doesn't flicker.
+    public var stepDownAfterMinutes: Double = 3
+    /// Heart rate older than this (seconds) counts as "no recent heart rate".
+    public var staleHeartRateSeconds: Double = 60
+    /// Before calibration the excess is unreliable, so only the absolute
+    /// heart-rate backstops are used.
+    public var requireCalibrationForExcessRules: Bool = true
+
+    // MARK: Alerts (on the wearer's own watch only; nothing is sent anywhere)
+
+    /// Tap the wrist when the light turns amber or red.
+    public var hapticAlertsEnabled: Bool = true
+    /// While red, tap again this often (minutes).
+    public var redHapticRepeatMinutes: Double = 2
 
     public init() {}
 }

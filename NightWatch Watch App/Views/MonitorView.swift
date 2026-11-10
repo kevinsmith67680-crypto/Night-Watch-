@@ -1,8 +1,8 @@
 import SwiftUI
 import NightWatchCore
 
-/// Monitoring mode: live heart rate, motion features, expected and excess
-/// heart rate, and the start/stop button.
+/// Monitoring mode: the traffic light, live heart rate, the details behind
+/// it, and the start/stop button.
 struct MonitorView: View {
     @ObservedObject var monitor: MonitorController
 
@@ -14,13 +14,17 @@ struct MonitorView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 6) {
+                let monitoringIsRunning = monitor.state == .running && monitor.mode == .monitoring
+                if monitoringIsRunning {
+                    RiskLightView(assessment: monitor.risk)
+                }
+                DisclaimerBanner()
                 heartRate
                 status
-                if monitor.state == .running && monitor.mode == .monitoring {
+                startStopButton
+                if monitoringIsRunning {
                     FeaturesPanel(result: monitor.latestResult, note: monitor.motionNote)
                 }
-                startStopButton
-                DisclaimerBanner()
             }
             .padding(.horizontal, 4)
         }

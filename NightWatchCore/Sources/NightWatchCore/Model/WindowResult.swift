@@ -1,7 +1,6 @@
 import Foundation
 
 /// Everything the pipeline worked out for one 5-second window.
-/// Step 6 adds the risk level.
 public struct WindowResult: Equatable, Codable, Sendable {
     public var features: WindowFeatures
     /// Activity after the heart-rate lag filter, in g.
@@ -15,18 +14,22 @@ public struct WindowResult: Equatable, Codable, Sendable {
     /// Excess heart rate and its trend after the Kalman filter. Nil until the
     /// first measurement has arrived.
     public var filtered: ExcessHeartRateEstimate?
+    /// The traffic-light verdict for this window.
+    public var risk: RiskAssessment?
 
     public init(features: WindowFeatures,
                 laggedActivityG: Double?,
                 expectedHeartRateBPM: Double?,
                 excessHeartRateBPM: Double?,
                 baselineIsCalibrated: Bool,
-                filtered: ExcessHeartRateEstimate? = nil) {
+                filtered: ExcessHeartRateEstimate? = nil,
+                risk: RiskAssessment? = nil) {
         self.features = features
         self.laggedActivityG = laggedActivityG
         self.expectedHeartRateBPM = expectedHeartRateBPM
         self.excessHeartRateBPM = excessHeartRateBPM
         self.baselineIsCalibrated = baselineIsCalibrated
         self.filtered = filtered
+        self.risk = risk
     }
 }

@@ -37,6 +37,8 @@ final class MonitorController: ObservableObject {
     @Published private(set) var windowCount = 0
     /// Explains why motion isn't available, e.g. in the simulator.
     @Published private(set) var motionNote: String?
+    /// The latest traffic-light verdict (monitoring mode only).
+    @Published private(set) var risk: RiskAssessment?
 
     // MARK: Calibration
 
@@ -56,6 +58,7 @@ final class MonitorController: ObservableObject {
     private var pipeline: MonitoringPipeline
     private var calibrator: BaselineCalibrator
     private var unsavedCalibrationWindows = 0
+    private let escalation: EscalationHandler
 
     init(config: MonitorConfig = .standard) {
         let savedBaseline = BaselineStore.loadBaseline()
@@ -67,6 +70,7 @@ final class MonitorController: ObservableObject {
         self.pipeline = MonitoringPipeline(config: config, baseline: savedBaseline)
         self.calibrator = calibrator
         self.calibrationProgress = calibrator.progress
+        self.escalation = HapticAlerts(config: config.risk)
         self.baseline = savedBaseline
 
         // The sources promise to call these on the main thread, so we can
@@ -97,6 +101,7 @@ final class MonitorController: ObservableObject {
         latestResult = nil
         windowCount = 0
         motionNote = nil
+        risk = nil
         calibrationMessage = nil
         pipeline = MonitoringPipeline(config: config, baseline: baseline)
 
@@ -163,6 +168,13 @@ final class MonitorController: ObservableObject {
         latestResult = result
         windowCount += 1
 
+        // Traffic light and wrist tap, while monitoring only.
+        if mode == .monitoring, let assessment = result.risk {
+            let previousLevel = risk?.level
+            risk = assessment
+            escalation.handle(assessment, previousLevel: previousLevel)
+        }
+
         if mode == .calibrating {
             if calibrator.add(result.features) {
                 unsavedCalibrationWindows += 1
@@ -172,7 +184,7 @@ final class MonitorController: ObservableObject {
                 saveCalibrationPoints()
             }
         }
-        // Later steps: Kalman filter, risk engine and CSV logging hook in here.
+        // Step 7: CSV logging hooks in here.
     }
 
     private func saveCalibrationPoints() {

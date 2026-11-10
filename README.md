@@ -62,7 +62,7 @@ swift test
   - [x] 3b. Real motion sensors on the watch
 - [x] 4. Baseline calibration
 - [x] 5. Kalman filter for excess heart rate
-- [ ] 6. Placeholder traffic-light display
+- [x] 6. Placeholder traffic-light display
 - [ ] 7. CSV logging, export to iPhone, simulation scenarios, tests
 
 ## Requirements
