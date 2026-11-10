@@ -2,10 +2,11 @@ import SwiftUI
 import NightWatchCore
 
 /// The main watch screen.
-/// Step 1: checks Health permission. Later steps add monitoring, calibration,
-/// the traffic light and the simulator.
+/// Checks Health permission, then shows monitoring mode. Later steps add
+/// calibration, the traffic light and the simulator.
 struct ContentView: View {
     @StateObject private var health = HealthKitAuthorizer()
+    @StateObject private var monitor = MonitorController()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -50,12 +51,7 @@ struct ContentView: View {
             }
 
         case .ready:
-            Label("Health access set up", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .font(.footnote)
-            Text("Monitoring comes in Step 2.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            MonitorView(monitor: monitor)
 
         case .workoutDenied:
             Text("Workout permission is off, so monitoring can't run. "

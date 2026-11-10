@@ -56,7 +56,7 @@ swift test
 ## Build stages
 
 - [x] 1. Project setup, HealthKit permissions
-- [ ] 2. Live heart rate (monitoring mode)
+- [x] 2. Live heart rate (monitoring mode)
 - [ ] 3. Motion features (activity, tremor, arm orientation)
 - [ ] 4. Baseline calibration
 - [ ] 5. Kalman filter for excess heart rate

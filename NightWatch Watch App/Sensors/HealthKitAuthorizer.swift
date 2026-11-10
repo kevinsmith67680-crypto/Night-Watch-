@@ -25,8 +25,7 @@ final class HealthKitAuthorizer: ObservableObject {
 
     @Published private(set) var status: Status = .checking
 
-    /// Shared by the whole app. Apple recommends one per app.
-    let healthStore = HKHealthStore()
+    private let healthStore = Health.store
 
     /// Data Night Watch WRITES. A workout session (monitoring mode) needs
     /// permission to save workouts, even though we discard ours at the end.
