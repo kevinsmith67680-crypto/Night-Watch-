@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import WatchKit
 import NightWatchCore
 
 /// Runs the sensors and publishes what the screens need to show.
@@ -59,6 +60,7 @@ final class MonitorController: ObservableObject {
     private var calibrator: BaselineCalibrator
     private var unsavedCalibrationWindows = 0
     private let escalation: EscalationHandler
+    private let logger = SessionLogger()
 
     init(config: MonitorConfig = .standard) {
         let savedBaseline = BaselineStore.loadBaseline()
@@ -72,6 +74,9 @@ final class MonitorController: ObservableObject {
         self.calibrationProgress = calibrator.progress
         self.escalation = HapticAlerts(config: config.risk)
         self.baseline = savedBaseline
+
+        // Lets each CSV row record the battery level, to measure real drain.
+        WKInterfaceDevice.current().isBatteryMonitoringEnabled = true
 
         // The sources promise to call these on the main thread, so we can
         // handle them immediately and in order.
@@ -104,6 +109,7 @@ final class MonitorController: ObservableObject {
         risk = nil
         calibrationMessage = nil
         pipeline = MonitoringPipeline(config: config, baseline: baseline)
+        logger.start(source: newMode == .monitoring ? "monitoring" : "calibration")
 
         do {
             try heartRateSource.start { [weak self] reading in
@@ -111,6 +117,7 @@ final class MonitorController: ObservableObject {
             }
         } catch {
             state = .failed(String(describing: error))
+            logger.finish()
         }
     }
 
@@ -167,6 +174,7 @@ final class MonitorController: ObservableObject {
     private func publish(_ result: WindowResult) {
         latestResult = result
         windowCount += 1
+        logger.append(result, batteryPercent: Self.batteryPercent())
 
         // Traffic light and wrist tap, while monitoring only.
         if mode == .monitoring, let assessment = result.risk {
@@ -184,7 +192,12 @@ final class MonitorController: ObservableObject {
                 saveCalibrationPoints()
             }
         }
-        // Step 7: CSV logging hooks in here.
+    }
+
+    /// The watch's battery level (0–100), or nil if unknown.
+    private static func batteryPercent() -> Double? {
+        let level = WKInterfaceDevice.current().batteryLevel
+        return level >= 0 ? Double(level) * 100 : nil
     }
 
     private func saveCalibrationPoints() {
@@ -214,6 +227,7 @@ final class MonitorController: ObservableObject {
         if mode == .calibrating {
             saveCalibrationPoints()
         }
+        logger.finish()
         startDate = nil
         if case .failed = state { return }   // keep the error message on screen
         state = .idle

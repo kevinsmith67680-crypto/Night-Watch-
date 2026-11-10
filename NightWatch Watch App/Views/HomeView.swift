@@ -20,6 +20,18 @@ struct HomeView: View {
                     Label("Calibration", systemImage: "slider.horizontal.3")
                 }
 
+                NavigationLink {
+                    SimulationView()
+                } label: {
+                    Label("Simulation", systemImage: "play.rectangle")
+                }
+
+                NavigationLink {
+                    LogsView()
+                } label: {
+                    Label("Logs", systemImage: "doc.text")
+                }
+
                 if monitor.isActive {
                     Text(monitor.mode == .calibrating ? "Calibration recording…" : "Monitoring running…")
                         .font(.footnote)

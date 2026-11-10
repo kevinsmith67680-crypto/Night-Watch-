@@ -1,24 +1,46 @@
 import SwiftUI
 import NightWatchCore
 
-/// iPhone screen. Step 1: an explanation only. Step 7 adds the list of logs.
+/// iPhone screen: logs received from the watch. Tap one to share or save it
+/// (Files, AirDrop, Mail, Numbers…). Swipe left to delete.
 struct LogListView: View {
+    @StateObject private var receiver = PhoneLogReceiver()
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Text("Monitoring runs on your Apple Watch. Open Night Watch on the watch to start.")
+                    Text("On the watch: Night Watch › Logs, then tap a log to send it here. Keep this app open while it arrives.")
+                        .font(.footnote)
                 }
-                Section("Exported logs") {
-                    Text("Logs sent from your watch will appear here (coming in Step 7).")
-                        .foregroundStyle(.secondary)
+
+                Section("Logs from your watch") {
+                    if receiver.logs.isEmpty {
+                        Text("No logs yet.")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(receiver.logs, id: \.self) { url in
+                        ShareLink(item: url) {
+                            Label(url.lastPathComponent, systemImage: "tablecells")
+                                .font(.footnote)
+                        }
+                    }
+                    .onDelete { offsets in
+                        let doomed = offsets.map { receiver.logs[$0] }
+                        for url in doomed { receiver.delete(url) }
+                    }
                 }
+
                 Section {
+                    Text("Logs contain sensitive health data. They stay on your devices unless you share them.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     Text(SafetyText.disclaimer)
                         .font(.footnote)
                 }
             }
             .navigationTitle("Night Watch")
+            .refreshable { receiver.refresh() }
         }
     }
 }

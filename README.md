@@ -53,6 +53,28 @@ cd NightWatchCore
 swift test
 ```
 
+## Simulation scenarios
+
+The real dangerous situation can't be tested, so these scenarios play a
+pretend person through exactly the same pipeline as real monitoring
+(watch: **Simulation**; Mac: `swift test`). The pretend person deliberately
+doesn't match their calibration perfectly.
+
+| Scenario | What happens | Must |
+|---|---|---|
+| Resting | 30 min sitting quietly | stay green |
+| Dancing | 20 min dancing with breaks, then sitting while heart rate recovers | stay green |
+| Caffeine | Sitting; heart rate creeps up 10 bpm; mild tremor | stay green |
+| Stimulant toxicity | Sitting still; heart rate climbs 2.5 bpm/min to +50; strong tremor | amber, then red |
+| Strap glitches | Resting with heart-rate spikes, arm jolts and a dropout | stay green |
+
+## Logs
+
+Every monitoring, calibration and simulation run saves a CSV (one row per
+5-second window) on the watch. **Logs → tap a log** sends it to the Night
+Watch iPhone app, where you can share or save it. Logs contain sensitive
+health data and never leave your own devices unless you share them.
+
 ## Build stages
 
 - [x] 1. Project setup, HealthKit permissions
@@ -63,7 +85,7 @@ swift test
 - [x] 4. Baseline calibration
 - [x] 5. Kalman filter for excess heart rate
 - [x] 6. Placeholder traffic-light display
-- [ ] 7. CSV logging, export to iPhone, simulation scenarios, tests
+- [x] 7. CSV logging, export to iPhone, simulation scenarios, tests
 
 ## Requirements
 

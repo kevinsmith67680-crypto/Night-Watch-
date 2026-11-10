@@ -38,15 +38,19 @@ public struct FeatureExtractor: Sendable {
         let expectedSamples = config.windowSeconds * config.motionSampleRateHz
         let qualityOK = Double(samples.count) >= config.minimumSampleFraction * expectedSamples
 
-        // Spectra of gravity-removed acceleration (in g) and rotation rate (in rad/s).
+        // Spectra of gravity-removed acceleration (in g) and rotation rate (in rad/s),
+        // only up to the highest frequency any feature uses.
+        let highestNeeded = max(config.activityBandHighHz, config.tremorBandHighHz)
         let acceleration = Spectrum(axes: [samples.map { $0.userAcceleration.x },
                                            samples.map { $0.userAcceleration.y },
                                            samples.map { $0.userAcceleration.z }],
-                                    sampleRateHz: sampleRate)
+                                    sampleRateHz: sampleRate,
+                                    maxFrequencyHz: highestNeeded)
         let rotation = Spectrum(axes: [samples.map { $0.rotationRate.x },
                                        samples.map { $0.rotationRate.y },
                                        samples.map { $0.rotationRate.z }],
-                                sampleRateHz: sampleRate)
+                                sampleRateHz: sampleRate,
+                                maxFrequencyHz: highestNeeded)
 
         // a) Activity: movement in the low-frequency band.
         let activity = acceleration.bandPower(from: config.activityBandLowHz,

@@ -18,13 +18,16 @@ import Foundation
 ///
 /// Several axes (x, y, z) can be passed in; their powers are added, so the
 /// result doesn't depend on how the watch is rotated.
+///
+/// `maxFrequencyHz` skips frequencies we never look at (above 12 Hz), which
+/// halves the work and so saves battery.
 public struct Spectrum: Sendable {
     /// Frequency of each bin, in Hz: 0, 0.2, 0.4 … up to half the sample rate.
     public let frequencies: [Double]
     /// Power in each bin, in (signal units)².
     public let binPower: [Double]
 
-    public init(axes: [[Double]], sampleRateHz: Double) {
+    public init(axes: [[Double]], sampleRateHz: Double, maxFrequencyHz: Double? = nil) {
         let n = axes.map { $0.count }.min() ?? 0
         guard n >= 2, sampleRateHz > 0 else {
             self.frequencies = []
@@ -34,6 +37,11 @@ public struct Spectrum: Sendable {
 
         let half = n / 2
         let count = Double(n)
+        // Highest bin to calculate (one extra, so a band edge is never cut short).
+        var lastBin = half
+        if let maxFrequency = maxFrequencyHz {
+            lastBin = min(half, max(0, Int((maxFrequency * count / sampleRateHz).rounded(.down)) + 1))
+        }
 
         // Hann window and its total energy (used for scaling).
         let window = (0..<n).map { 0.5 - 0.5 * cos(2 * Double.pi * Double($0) / count) }
@@ -43,13 +51,13 @@ public struct Spectrum: Sendable {
         let cosTable = (0..<n).map { cos(2 * Double.pi * Double($0) / count) }
         let sinTable = (0..<n).map { sin(2 * Double.pi * Double($0) / count) }
 
-        var power = [Double](repeating: 0, count: half + 1)
+        var power = [Double](repeating: 0, count: lastBin + 1)
 
         for axis in axes {
             let mean = axis.prefix(n).reduce(0.0, +) / count
             let x = (0..<n).map { (axis[$0] - mean) * window[$0] }
 
-            for k in 0...half {
+            for k in 0...lastBin {
                 var real = 0.0
                 var imaginary = 0.0
                 var index = 0                       // (k × i) mod n, without overflow
@@ -67,7 +75,7 @@ public struct Spectrum: Sendable {
             }
         }
 
-        self.frequencies = (0...half).map { Double($0) * sampleRateHz / count }
+        self.frequencies = (0...lastBin).map { Double($0) * sampleRateHz / count }
         self.binPower = power
     }
 
