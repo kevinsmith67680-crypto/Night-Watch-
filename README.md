@@ -57,9 +57,9 @@ swift test
 
 - [x] 1. Project setup, HealthKit permissions
 - [x] 2. Live heart rate (monitoring mode)
-- [ ] 3. Motion features (activity, tremor, arm orientation)
+- [x] 3. Motion features (activity, tremor, arm orientation)
   - [x] 3a. Feature maths and tests (`NightWatchCore`)
-  - [ ] 3b. Real motion sensors on the watch
+  - [x] 3b. Real motion sensors on the watch
 - [ ] 4. Baseline calibration
 - [ ] 5. Kalman filter for excess heart rate
 - [ ] 6. Placeholder traffic-light display

@@ -9,6 +9,9 @@ struct MonitorView: View {
         VStack(spacing: 6) {
             heartRate
             status
+            if monitor.state == .running {
+                FeaturesPanel(window: monitor.latestWindow, note: monitor.motionNote)
+            }
             startStopButton
         }
     }
