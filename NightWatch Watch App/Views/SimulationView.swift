@@ -62,6 +62,7 @@ private struct ScenarioRow: View {
             HStack {
                 Text(scenario.title)
                     .font(.headline)
+                    .foregroundStyle(Theme.green)
                 Spacer()
                 if isRunning {
                     ProgressView()

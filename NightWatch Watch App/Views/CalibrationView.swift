@@ -43,6 +43,7 @@ struct CalibrationView: View {
         if let baseline = monitor.baseline {
             Text("Your baseline")
                 .font(.headline)
+                .foregroundStyle(Theme.green)
             row("Resting", "\(Int(baseline.restingHeartRateBPM.rounded())) bpm")
             row("Movement", String(format: "+%.0f bpm per 0.1 g", baseline.bpmPerG * 0.1))
             row("Lag", "\(Int(baseline.lagRiseSeconds)) s up · \(Int(baseline.lagFallSeconds)) s down")
@@ -67,6 +68,7 @@ struct CalibrationView: View {
         return VStack(alignment: .leading, spacing: 2) {
             Text("Recorded")
                 .font(.headline)
+                .foregroundStyle(Theme.green)
             row("Total", minutes(progress.totalMinutes, of: progress.requiredTotalMinutes))
             row("Still", minutes(progress.stillMinutes, of: progress.requiredStillMinutes))
             row("Active", minutes(progress.activeMinutes, of: progress.requiredActiveMinutes))

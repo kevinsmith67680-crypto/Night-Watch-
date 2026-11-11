@@ -14,7 +14,7 @@ struct LogListView: View {
                         .font(.footnote)
                 }
 
-                Section("Logs from your watch") {
+                Section {
                     if receiver.logs.isEmpty {
                         Text("No logs yet.")
                             .foregroundStyle(.secondary)
@@ -29,6 +29,9 @@ struct LogListView: View {
                         let doomed = offsets.map { receiver.logs[$0] }
                         for url in doomed { receiver.delete(url) }
                     }
+                } header: {
+                    Text("Logs from your watch")
+                        .foregroundStyle(Theme.green)
                 }
 
                 Section {

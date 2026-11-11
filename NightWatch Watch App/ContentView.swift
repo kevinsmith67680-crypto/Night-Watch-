@@ -36,6 +36,7 @@ private struct PermissionView: View {
             VStack(spacing: 10) {
                 Text("Night Watch")
                     .font(.headline)
+                    .foregroundStyle(Theme.green)
                 message
                 DisclaimerBanner()
             }
