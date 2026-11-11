@@ -32,8 +32,10 @@ public struct MonitoringPipeline: Sendable {
         self.activityLag = ActivityLagFilter(riseSeconds: model.lagRiseSeconds,
                                              fallSeconds: model.lagFallSeconds)
         self.estimator = estimator ?? ExcessHeartRateFilter(config: config.kalman, baseline: model)
-        self.riskEngine = riskEngine ?? PlaceholderRiskRules(config: config.risk,
-                                                             windowSeconds: config.features.windowSeconds)
+        self.riskEngine = riskEngine ?? PlaceholderRiskRules(
+            config: config.risk,
+            windowSeconds: config.features.windowSeconds,
+            personalTremorDegPerSec: model.isCalibrated ? model.tremorBaselineDegPerSec : nil)
     }
 
     /// Feed every reading here, in the order they arrive.

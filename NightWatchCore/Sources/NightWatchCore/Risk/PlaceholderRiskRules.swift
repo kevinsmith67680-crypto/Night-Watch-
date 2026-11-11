@@ -9,6 +9,9 @@ import Foundation
 public struct PlaceholderRiskRules: RiskEngine {
     public let config: RiskConfig
     public let windowSeconds: Double
+    /// Tremor size above which tremor counts as raised (degrees per second):
+    /// personal if calibration measured your normal tremor, otherwise fixed.
+    public let tremorThresholdDegPerSec: Double
 
     /// What we remember about each recent window.
     private struct Snapshot: Sendable {
@@ -26,9 +29,17 @@ public struct PlaceholderRiskRules: RiskEngine {
     private var clearSince: Timestamp?
     private let historySeconds: Double
 
-    public init(config: RiskConfig = RiskConfig(), windowSeconds: Double = 5) {
+    /// - personalTremorDegPerSec: your normal tremor from calibration, or nil.
+    public init(config: RiskConfig = RiskConfig(), windowSeconds: Double = 5,
+                personalTremorDegPerSec: Double? = nil) {
         self.config = config
         self.windowSeconds = windowSeconds
+        if let personal = personalTremorDegPerSec {
+            tremorThresholdDegPerSec = max(config.tremorRaisedMinimumDegPerSec,
+                                           config.tremorRaisedMultiplier * personal)
+        } else {
+            tremorThresholdDegPerSec = config.tremorRaisedDegPerSec
+        }
         let longestStill = max(config.amberStillMinutes, config.amberAbsoluteStillMinutes,
                                config.redStillMinutes, config.redAbsoluteStillMinutes)
         historySeconds = (longestStill + config.tremorLookbackMinutes + 5) * 60
@@ -71,7 +82,8 @@ public struct PlaceholderRiskRules: RiskEngine {
                 if trend >= config.redRisingTrendBPMPerMinute {
                     flag(.red, "\(excessText), rising \(trendText), \(stillText).")
                 } else if tremor {
-                    flag(.red, "\(excessText) with raised tremor, \(stillText).")
+                    let tremorText = String(format: "raised tremor (above %.1f °/s)", tremorThresholdDegPerSec)
+                    flag(.red, "\(excessText) with \(tremorText), \(stillText).")
                 }
             }
             if still >= config.redStillMinutes && excess >= config.redExcessAloneBPM && notFalling {
@@ -169,6 +181,6 @@ public struct PlaceholderRiskRules: RiskEngine {
               let size = Statistics.median(reliable.map { $0.tremorDegPerSec }),
               let rhythm = Statistics.median(reliable.map { $0.tremorRhythmicity })
         else { return false }
-        return size >= config.tremorRaisedDegPerSec && rhythm >= config.tremorMinimumRhythmicity
+        return size >= tremorThresholdDegPerSec && rhythm >= config.tremorMinimumRhythmicity
     }
 }

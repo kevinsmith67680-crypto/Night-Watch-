@@ -100,6 +100,10 @@ public struct CalibrationConfig: Codable, Equatable, Sendable {
     public var minimumActiveMinutes: Double = 10
     /// Activity (g) at or above which a window counts as "active": brisk walking or more.
     public var activeThresholdG: Double = 0.1
+    /// Optional: minutes of still windows with reliable tremor readings needed
+    /// to learn your personal normal tremor. Without it, the risk rules fall
+    /// back to a fixed tremor threshold.
+    public var minimumTremorMinutes: Double = 5
 
     // MARK: Fitting
 
@@ -227,8 +231,14 @@ public struct RiskConfig: Codable, Equatable, Sendable {
     /// excess, e.g. recovering after exercise, never raises the level.
     public var notFallingTrendBPMPerMinute: Double = -0.5
     /// Tremor counts as raised when, over the last `tremorLookbackMinutes`, at
-    /// least half the windows had reliable tremor readings and their medians are
-    /// at or above both of these. PLACEHOLDER values: tune from your own logs.
+    /// least half the windows had reliable tremor readings, their median
+    /// rhythmicity is at least `tremorMinimumRhythmicity`, and their median size
+    /// is at or above the tremor threshold:
+    ///  • with a personal tremor baseline (from calibration):
+    ///    `tremorRaisedMultiplier` × your normal, but never below `tremorRaisedMinimumDegPerSec`;
+    ///  • without one: the fixed `tremorRaisedDegPerSec` (a PLACEHOLDER guess).
+    public var tremorRaisedMultiplier: Double = 2.0
+    public var tremorRaisedMinimumDegPerSec: Double = 1.0
     public var tremorRaisedDegPerSec: Double = 2.0
     public var tremorMinimumRhythmicity: Double = 0.5
     public var tremorLookbackMinutes: Double = 2

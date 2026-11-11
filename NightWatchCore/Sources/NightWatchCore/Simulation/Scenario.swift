@@ -80,5 +80,6 @@ public enum SimulatedPerson {
                                                windowsUsed: 720,
                                                appleRestingHeartRateBPM: 61,
                                                calibratedAt: nil,
-                                               isCalibrated: true)
+                                               isCalibrated: true,
+                                               tremorBaselineDegPerSec: 0.6)
 }

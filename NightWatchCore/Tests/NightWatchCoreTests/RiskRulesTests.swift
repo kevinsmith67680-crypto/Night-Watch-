@@ -108,6 +108,30 @@ final class RiskRulesTests: XCTestCase {
         XCTAssertEqual(session.run(minutes: 6, excess: 46, trend: 0).level, .red)
     }
 
+    // MARK: Personal tremor threshold
+
+    func testPersonalTremorBaselineSetsTheThreshold() {
+        // Normal tremor 0.6 °/s → raised from 1.2 °/s (2 × normal).
+        let personal = PlaceholderRiskRules(personalTremorDegPerSec: 0.6)
+        XCTAssertEqual(personal.tremorThresholdDegPerSec, 1.2, accuracy: 1e-9)
+
+        var withPersonal = Session(rules: personal)
+        let verdict = withPersonal.run(minutes: 6, excess: 38, trend: 0, tremor: 1.5, rhythm: 0.7)
+        XCTAssertTrue(verdict.tremorRaised)
+        XCTAssertEqual(verdict.level, .red)
+
+        // The same tremor is NOT raised against the fixed 2 °/s threshold.
+        var withoutPersonal = Session()
+        let fixed = withoutPersonal.run(minutes: 6, excess: 38, trend: 0, tremor: 1.5, rhythm: 0.7)
+        XCTAssertFalse(fixed.tremorRaised)
+        XCTAssertEqual(fixed.level, .amber)
+    }
+
+    func testVeryLowPersonalTremorStillHasASensibleFloor() {
+        let rules = PlaceholderRiskRules(personalTremorDegPerSec: 0.2)
+        XCTAssertEqual(rules.tremorThresholdDegPerSec, 1.0, accuracy: 1e-9)   // not 0.4
+    }
+
     // MARK: Backstops that don't need calibration
 
     func testUncalibratedIgnoresExcessButKeepsHeartRateBackstop() {

@@ -5,11 +5,15 @@ public struct CalibrationPoint: Codable, Equatable, Sendable {
     public var time: Timestamp
     public var activityG: Double
     public var heartRateBPM: Double
+    /// Tremor size (degrees per second) if this window's tremor reading was
+    /// reliable (still, enough samples), otherwise nil.
+    public var tremorDegPerSec: Double?
 
-    public init(time: Timestamp, activityG: Double, heartRateBPM: Double) {
+    public init(time: Timestamp, activityG: Double, heartRateBPM: Double, tremorDegPerSec: Double? = nil) {
         self.time = time
         self.activityG = activityG
         self.heartRateBPM = heartRateBPM
+        self.tremorDegPerSec = tremorDegPerSec
     }
 }
 
@@ -21,6 +25,13 @@ public struct CalibrationProgress: Equatable, Sendable {
     public var requiredTotalMinutes: Double
     public var requiredStillMinutes: Double
     public var requiredActiveMinutes: Double
+    /// Optional: quiet minutes with reliable tremor readings, for a personal tremor baseline.
+    public var tremorMinutes: Double
+    public var requiredTremorMinutes: Double
+
+    public var hasEnoughTremorData: Bool {
+        tremorMinutes >= requiredTremorMinutes
+    }
 
     public var isReady: Bool {
         totalMinutes >= requiredTotalMinutes
@@ -91,7 +102,10 @@ public struct BaselineCalibrator: Sendable {
               let motion = window.motion,
               motion.qualityOK
         else { return false }
-        points.append(CalibrationPoint(time: window.end, activityG: motion.activityG, heartRateBPM: heartRate))
+        points.append(CalibrationPoint(time: window.end,
+                                       activityG: motion.activityG,
+                                       heartRateBPM: heartRate,
+                                       tremorDegPerSec: motion.tremorReliable ? motion.tremorGyroDegPerSec : nil))
         return true
     }
 
@@ -99,12 +113,15 @@ public struct BaselineCalibrator: Sendable {
         let minutesPerWindow = config.features.windowSeconds / 60
         let still = points.filter { $0.activityG < config.features.stillnessThresholdG }.count
         let active = points.filter { $0.activityG >= config.calibration.activeThresholdG }.count
+        let tremor = points.filter { $0.tremorDegPerSec != nil }.count
         return CalibrationProgress(totalMinutes: Double(points.count) * minutesPerWindow,
                                    stillMinutes: Double(still) * minutesPerWindow,
                                    activeMinutes: Double(active) * minutesPerWindow,
                                    requiredTotalMinutes: config.calibration.minimumTotalMinutes,
                                    requiredStillMinutes: config.calibration.minimumStillMinutes,
-                                   requiredActiveMinutes: config.calibration.minimumActiveMinutes)
+                                   requiredActiveMinutes: config.calibration.minimumActiveMinutes,
+                                   tremorMinutes: Double(tremor) * minutesPerWindow,
+                                   requiredTremorMinutes: config.calibration.minimumTremorMinutes)
     }
 
     /// Fits the baseline. Throws `CalibrationError` if there isn't enough data
@@ -144,6 +161,15 @@ public struct BaselineCalibrator: Sendable {
                             + "(\(Int(apple.rounded())) bpm). Recording more quiet sitting may help.")
         }
 
+        // Personal normal tremor (optional): the median of reliable still-window readings.
+        var tremorBaseline: Double?
+        if progress.hasEnoughTremorData {
+            tremorBaseline = Statistics.median(points.compactMap { $0.tremorDegPerSec })
+        } else {
+            warnings.append("Not enough quiet data for a personal tremor baseline, so the fixed tremor "
+                            + "threshold is used. Record about 10 minutes sitting still, then calculate again.")
+        }
+
         let model = BaselineModel(restingHeartRateBPM: resting,
                                   bpmPerG: slope,
                                   lagRiseSeconds: chosen.rise,
@@ -153,7 +179,8 @@ public struct BaselineCalibrator: Sendable {
                                   windowsUsed: chosen.fit.count,
                                   appleRestingHeartRateBPM: appleRestingHeartRateBPM,
                                   calibratedAt: now,
-                                  isCalibrated: true)
+                                  isCalibrated: true,
+                                  tremorBaselineDegPerSec: tremorBaseline)
         return CalibrationResult(model: model, warnings: warnings)
     }
 

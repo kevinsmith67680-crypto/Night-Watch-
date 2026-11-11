@@ -27,6 +27,10 @@ public struct BaselineModel: Codable, Equatable, Sendable {
     public var calibratedAt: Date?
     /// False when these are rough defaults rather than your own calibration.
     public var isCalibrated: Bool
+    /// Your normal tremor while still (median, degrees per second), if
+    /// calibration had enough quiet data. Nil means "use the fixed threshold".
+    /// (Baselines saved before this was added simply load with nil.)
+    public var tremorBaselineDegPerSec: Double?
 
     public init(restingHeartRateBPM: Double,
                 bpmPerG: Double,
@@ -37,7 +41,8 @@ public struct BaselineModel: Codable, Equatable, Sendable {
                 windowsUsed: Int,
                 appleRestingHeartRateBPM: Double?,
                 calibratedAt: Date?,
-                isCalibrated: Bool) {
+                isCalibrated: Bool,
+                tremorBaselineDegPerSec: Double? = nil) {
         self.restingHeartRateBPM = restingHeartRateBPM
         self.bpmPerG = bpmPerG
         self.lagRiseSeconds = lagRiseSeconds
@@ -48,6 +53,7 @@ public struct BaselineModel: Codable, Equatable, Sendable {
         self.appleRestingHeartRateBPM = appleRestingHeartRateBPM
         self.calibratedAt = calibratedAt
         self.isCalibrated = isCalibrated
+        self.tremorBaselineDegPerSec = tremorBaselineDegPerSec
     }
 
     /// Heart rate expected for this much (lagged) activity.

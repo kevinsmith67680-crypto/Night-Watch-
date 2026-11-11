@@ -15,6 +15,12 @@ struct MonitorView: View {
         ScrollView {
             VStack(spacing: 6) {
                 let monitoringIsRunning = monitor.state == .running && monitor.mode == .monitoring
+                if let note = monitor.recoveryNote {
+                    Text(note)
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+                }
                 if monitoringIsRunning {
                     RiskLightView(assessment: monitor.risk)
                 }

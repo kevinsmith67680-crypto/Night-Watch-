@@ -50,6 +50,11 @@ struct CalibrationView: View {
             if let apple = baseline.appleRestingHeartRateBPM {
                 row("Apple resting", "\(Int(apple.rounded())) bpm")
             }
+            if let tremor = baseline.tremorBaselineDegPerSec {
+                row("Normal tremor", String(format: "%.2f °/s", tremor))
+            } else {
+                row("Normal tremor", "not measured")
+            }
         } else {
             Text("Not calibrated yet. Until you are, expected heart rate uses rough defaults.")
                 .font(.footnote)
@@ -65,6 +70,7 @@ struct CalibrationView: View {
             row("Total", minutes(progress.totalMinutes, of: progress.requiredTotalMinutes))
             row("Still", minutes(progress.stillMinutes, of: progress.requiredStillMinutes))
             row("Active", minutes(progress.activeMinutes, of: progress.requiredActiveMinutes))
+            row("Tremor (optional)", minutes(progress.tremorMinutes, of: progress.requiredTremorMinutes))
         }
     }
 

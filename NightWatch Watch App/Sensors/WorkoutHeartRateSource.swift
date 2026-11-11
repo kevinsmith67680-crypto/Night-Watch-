@@ -42,6 +42,11 @@ final class WorkoutHeartRateSource: NSObject, SensorSource {
         super.init()
     }
 
+    /// When the current workout session began (nil if none).
+    var sessionStartDate: Date? {
+        session?.startDate
+    }
+
     // MARK: - SensorSource
 
     /// Call on the main thread.
@@ -77,6 +82,39 @@ final class WorkoutHeartRateSource: NSObject, SensorSource {
                 self?.onError?(error ?? SensorError.unavailable("Heart-rate collection could not start."))
                 self?.stop()
             }
+        }
+    }
+
+    /// Re-attaches to a workout session that was still running when the app
+    /// stopped unexpectedly (watchOS relaunches the app and asks it to recover).
+    /// Calls `onRunning` if the session is running.
+    @MainActor
+    func recover(deliver: @escaping (SensorReading) -> Void) async throws {
+        guard session == nil else {
+            throw SensorError.unavailable("Monitoring is already running.")
+        }
+        let recovered: HKWorkoutSession = try await withCheckedThrowingContinuation { continuation in
+            healthStore.recoverActiveWorkoutSession { session, error in
+                if let session {
+                    continuation.resume(returning: session)
+                } else {
+                    continuation.resume(throwing: error ?? SensorError.unavailable("There was no workout session to recover."))
+                }
+            }
+        }
+        let recoveredBuilder = recovered.associatedWorkoutBuilder()
+        recoveredBuilder.dataSource = HKLiveWorkoutDataSource(healthStore: healthStore,
+                                                              workoutConfiguration: recovered.workoutConfiguration)
+        recovered.delegate = self
+        recoveredBuilder.delegate = self
+
+        session = recovered
+        builder = recoveredBuilder
+        self.deliver = deliver
+        lastSampleDate = nil
+
+        if recovered.state == .running {
+            onRunning?()
         }
     }
 

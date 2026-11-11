@@ -12,6 +12,10 @@ import NightWatchCore
 @MainActor
 final class MonitorController: ObservableObject {
 
+    /// The one controller for the whole app. Shared so that crash recovery
+    /// (which watchOS reports to the app delegate) can reach it.
+    static let shared = MonitorController()
+
     enum State: Equatable {
         case idle
         case starting
@@ -20,9 +24,15 @@ final class MonitorController: ObservableObject {
         case failed(String)
     }
 
-    enum Mode: Equatable {
+    enum Mode: String, Equatable {
         case monitoring
         case calibrating
+    }
+
+    /// Small things remembered between launches, for crash recovery.
+    private enum Remembered {
+        static let activeMode = "nightwatch.activeMode"
+        static let lastRiskLevel = "nightwatch.lastRiskLevel"
     }
 
     // MARK: Live session
@@ -40,6 +50,8 @@ final class MonitorController: ObservableObject {
     @Published private(set) var motionNote: String?
     /// The latest traffic-light verdict (monitoring mode only).
     @Published private(set) var risk: RiskAssessment?
+    /// Explains that monitoring was restarted after the app stopped unexpectedly.
+    @Published private(set) var recoveryNote: String?
 
     // MARK: Calibration
 
@@ -98,18 +110,10 @@ final class MonitorController: ObservableObject {
         case .idle, .failed: break
         default: return
         }
-        mode = newMode
-        state = .starting
-        latestHeartRate = nil
-        heartRateCount = 0
-        startDate = nil
-        latestResult = nil
-        windowCount = 0
-        motionNote = nil
-        risk = nil
-        calibrationMessage = nil
-        pipeline = MonitoringPipeline(config: config, baseline: baseline)
-        logger.start(source: newMode == .monitoring ? "monitoring" : "calibration")
+        prepareForSession(newMode)
+        recoveryNote = nil
+        UserDefaults.standard.set(0, forKey: Remembered.lastRiskLevel)
+        logger.start(source: newMode.rawValue)
 
         do {
             try heartRateSource.start { [weak self] reading in
@@ -118,6 +122,41 @@ final class MonitorController: ObservableObject {
         } catch {
             state = .failed(String(describing: error))
             logger.finish()
+            UserDefaults.standard.removeObject(forKey: Remembered.activeMode)
+        }
+    }
+
+    /// Called after watchOS relaunches the app because it stopped unexpectedly
+    /// while a session was running. Picks the session back up.
+    func recoverActiveSession() {
+        switch state {
+        case .idle, .failed: break
+        default: return   // already running
+        }
+        let defaults = UserDefaults.standard
+        let recoveredMode = Mode(rawValue: defaults.string(forKey: Remembered.activeMode) ?? "") ?? .monitoring
+        let previousLevel = RiskLevel(rawValue: defaults.integer(forKey: Remembered.lastRiskLevel)) ?? .green
+
+        prepareForSession(recoveredMode)
+        var note = "Night Watch stopped unexpectedly and has restarted. The light needs a few minutes "
+            + "of new data before it means anything again."
+        if recoveredMode == .monitoring && previousLevel > .green {
+            note += " Before it stopped, the light was \(previousLevel.label.uppercased())."
+            WKInterfaceDevice.current().play(.notification)
+        }
+        recoveryNote = note
+        logger.start(source: "\(recoveredMode.rawValue)-recovered")
+
+        Task {
+            do {
+                try await heartRateSource.recover { [weak self] reading in
+                    MainActor.assumeIsolated { self?.receive(reading) }
+                }
+            } catch {
+                state = .failed("Couldn't restart after the app stopped: \(error.localizedDescription)")
+                logger.finish()
+                defaults.removeObject(forKey: Remembered.activeMode)
+            }
         }
     }
 
@@ -181,6 +220,9 @@ final class MonitorController: ObservableObject {
             let previousLevel = risk?.level
             risk = assessment
             escalation.handle(assessment, previousLevel: previousLevel)
+            if assessment.level != previousLevel {
+                UserDefaults.standard.set(assessment.level.rawValue, forKey: Remembered.lastRiskLevel)
+            }
         }
 
         if mode == .calibrating {
@@ -205,9 +247,25 @@ final class MonitorController: ObservableObject {
         unsavedCalibrationWindows = 0
     }
 
+    /// Resets everything for a new (or recovered) session.
+    private func prepareForSession(_ newMode: Mode) {
+        mode = newMode
+        state = .starting
+        latestHeartRate = nil
+        heartRateCount = 0
+        startDate = nil
+        latestResult = nil
+        windowCount = 0
+        motionNote = nil
+        risk = nil
+        calibrationMessage = nil
+        pipeline = MonitoringPipeline(config: config, baseline: baseline)
+        UserDefaults.standard.set(newMode.rawValue, forKey: Remembered.activeMode)
+    }
+
     private func sessionDidStart() {
         state = .running
-        startDate = Date()
+        startDate = heartRateSource.sessionStartDate ?? Date()
         // Motion starts once the workout session is running, because the
         // session is what keeps it going with the screen off.
         do {
@@ -228,6 +286,7 @@ final class MonitorController: ObservableObject {
             saveCalibrationPoints()
         }
         logger.finish()
+        UserDefaults.standard.removeObject(forKey: Remembered.activeMode)
         startDate = nil
         if case .failed = state { return }   // keep the error message on screen
         state = .idle

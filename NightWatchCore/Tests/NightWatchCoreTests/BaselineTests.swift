@@ -166,6 +166,44 @@ final class BaselineCalibratorTests: XCTestCase {
         XCTAssertEqual(model.bpmPerG, person.bpmPerG, accuracy: 9)
     }
 
+    func testLearnsYourNormalTremor() throws {
+        var calibrator = BaselineCalibrator()
+        for var window in calibrationDay(for: TruePerson(), seed: 6) {
+            window.motion?.tremorGyroDegPerSec = 0.7   // this person's normal tremor
+            calibrator.add(window)
+        }
+        XCTAssertTrue(calibrator.progress.hasEnoughTremorData)
+        let result = try calibrator.fit()
+        XCTAssertEqual(try XCTUnwrap(result.model.tremorBaselineDegPerSec), 0.7, accuracy: 1e-9)
+        XCTAssertFalse(result.warnings.contains { $0.contains("tremor") })
+    }
+
+    func testWithoutQuietTremorDataTheFixedThresholdIsUsed() throws {
+        var calibrator = BaselineCalibrator()
+        for var window in calibrationDay(for: TruePerson(), seed: 7) {
+            window.motion?.tremorReliable = false
+            calibrator.add(window)
+        }
+        XCTAssertTrue(calibrator.progress.isReady)               // tremor data is optional
+        XCTAssertFalse(calibrator.progress.hasEnoughTremorData)
+        let result = try calibrator.fit()
+        XCTAssertNil(result.model.tremorBaselineDegPerSec)
+        XCTAssertTrue(result.warnings.contains { $0.contains("tremor") })
+    }
+
+    func testDataSavedBeforeTheTremorUpdateStillLoads() throws {
+        // A baseline and calibration points saved by the earlier version have no tremor fields.
+        let oldBaseline = #"{"restingHeartRateBPM":62,"bpmPerG":90,"lagRiseSeconds":30,"lagFallSeconds":120,"residualSDBPM":3,"windowsUsed":700,"isCalibrated":true}"#
+        let model = try JSONDecoder().decode(BaselineModel.self, from: Data(oldBaseline.utf8))
+        XCTAssertEqual(model.restingHeartRateBPM, 62)
+        XCTAssertNil(model.tremorBaselineDegPerSec)
+
+        let oldPoints = #"[{"time":5,"activityG":0.01,"heartRateBPM":60}]"#
+        let points = try JSONDecoder().decode([CalibrationPoint].self, from: Data(oldPoints.utf8))
+        XCTAssertEqual(points.count, 1)
+        XCTAssertNil(points[0].tremorDegPerSec)
+    }
+
     func testBaselineSurvivesSavingAndLoading() throws {
         let model = BaselineModel(restingHeartRateBPM: 61.5, bpmPerG: 95, lagRiseSeconds: 30,
                                   lagFallSeconds: 120, residualSDBPM: 2.1, rSquared: 0.9,

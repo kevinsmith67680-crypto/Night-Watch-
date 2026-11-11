@@ -34,6 +34,7 @@ Sensors ──► Feature extraction ──► Filters ──► Risk engine ─
 | `NightWatch Watch App/` | The watchOS app: sensors (HealthKit, CoreMotion) and screens. |
 | `NightWatch/` | Minimal iPhone companion. It only receives CSV logs from the watch. |
 | `Config/` | Watch app Info.plist additions and entitlements (HealthKit, workout background mode). |
+| `Design/` | A discreet alternative app icon (see `Design/README.md`). |
 | `NightWatch.xcodeproj` | The Xcode project. Needs **Xcode 16 or newer**. |
 
 The project uses Xcode's *synchronized folders*: any file placed in
@@ -86,6 +87,12 @@ health data and never leave your own devices unless you share them.
 - [x] 5. Kalman filter for excess heart rate
 - [x] 6. Placeholder traffic-light display
 - [x] 7. CSV logging, export to iPhone, simulation scenarios, tests
+
+Next stage:
+
+- [x] A. Robustness: crash recovery, personal tremor baseline, app icon
+- [ ] B. Real-world data collection and threshold tuning
+- [ ] C. IMM filter ("chilling / dancing / in trouble")
 
 ## Requirements
 

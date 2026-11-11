@@ -4,7 +4,7 @@ import NightWatchCore
 /// The app's first screen: asks for Health access, then shows the home menu.
 struct ContentView: View {
     @StateObject private var health = HealthKitAuthorizer()
-    @StateObject private var monitor = MonitorController()
+    @ObservedObject private var monitor = MonitorController.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
