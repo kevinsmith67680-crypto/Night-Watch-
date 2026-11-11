@@ -61,6 +61,11 @@ pretend person through exactly the same pipeline as real monitoring
 (watch: **Simulation**; Mac: `swift test`). The pretend person deliberately
 doesn't match their calibration perfectly.
 
+On the watch, tap a scenario to **replay** it minute by minute: you see exactly
+what the monitoring screen would show (traffic light, advice such as the ECG
+prompt on amber, heart rate and the numbers behind it), with play/pause,
+±1 minute steps, jump-to-amber/red and the same wrist tap as real monitoring.
+
 | Scenario | What happens | Must |
 |---|---|---|
 | Resting | 30 min sitting quietly | stay green |

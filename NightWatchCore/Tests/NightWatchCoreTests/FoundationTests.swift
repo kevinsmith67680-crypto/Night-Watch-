@@ -23,6 +23,12 @@ final class SafetyTextTests: XCTestCase {
         XCTAssertTrue(text.contains("does not rule out"))
     }
 
+    func testAmberStepsPromptAnECGFirstAndKeepTheCaution() {
+        XCTAssertTrue(SafetyText.amberSteps.first?.contains("ECG") ?? false)
+        XCTAssertTrue(SafetyText.amberSteps.contains { $0.contains("water") })
+        XCTAssertTrue(SafetyText.ecgCaution.contains("does not rule out"))
+    }
+
     func testRedPointsTo999() {
         XCTAssertTrue(RiskLevel.red.message.contains("999"))
     }

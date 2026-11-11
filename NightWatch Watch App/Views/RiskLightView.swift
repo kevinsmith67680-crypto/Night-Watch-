@@ -2,6 +2,7 @@ import SwiftUI
 import NightWatchCore
 
 /// The traffic light, clearly labelled as temporary prototype rules.
+/// Used both for real monitoring and in simulation replays.
 struct RiskLightView: View {
     let assessment: RiskAssessment?
 
@@ -23,9 +24,7 @@ struct RiskLightView: View {
             }
 
             if let assessment, showsLevel(assessment) {
-                Text(SafetyText.message(for: assessment.level))
-                    .font(.footnote)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                advice(for: assessment.level)
 
                 ForEach(assessment.reasons, id: \.self) { reason in
                     Text(reason)
@@ -42,6 +41,44 @@ struct RiskLightView: View {
         }
         .padding(8)
         .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    /// What to do. Amber is a short list of steps, with the ECG prompt highlighted.
+    @ViewBuilder
+    private func advice(for level: RiskLevel) -> some View {
+        switch level {
+        case .amber:
+            VStack(alignment: .leading, spacing: 4) {
+                Text(SafetyText.amberSummary)
+                    .font(.footnote)
+                ForEach(SafetyText.amberSteps, id: \.self) { step in
+                    let isECG = step.contains("ECG")
+                    Label(step, systemImage: Self.icon(for: step))
+                        .font(isECG ? Font.footnote.weight(.semibold) : Font.footnote)
+                        .padding(isECG ? 4 : 0)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(isECG ? Color.orange.opacity(0.3) : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 6))
+                }
+                Text(SafetyText.ecgCaution)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+        case .green, .red:
+            Text(SafetyText.message(for: level))
+                .font(.footnote)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private static func icon(for step: String) -> String {
+        if step.contains("ECG") { return "waveform.path.ecg" }
+        if step.contains("water") { return "drop.fill" }
+        if step.contains("cool") { return "thermometer.snowflake" }
+        if step.contains("someone") { return "person.2.fill" }
+        return "circle.fill"
     }
 
     /// Grey "no data" only while nothing is known. A raised level stays visible

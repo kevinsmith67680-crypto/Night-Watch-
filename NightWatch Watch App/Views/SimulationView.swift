@@ -1,35 +1,41 @@
 import SwiftUI
 import NightWatchCore
 
-/// Plays the test scenarios through the same pipeline the real watch uses.
+/// Lists the test scenarios. Tap one to watch, minute by minute, how the app
+/// would respond; "Run all" just checks pass/fail for every scenario.
 struct SimulationView: View {
     @State private var runs: [ScenarioKind: SimulationRun] = [:]
-    @State private var running: ScenarioKind?
+    @State private var runningAll: ScenarioKind?
     @State private var saveLogs = true
 
     var body: some View {
         List {
-            Text("Plays a pretend person through exactly the same pipeline as real monitoring. Each scenario takes a few seconds on the watch.")
+            Text("Tap a scenario to see how Night Watch would respond, minute by minute. A pretend person goes through exactly the same steps as real monitoring.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
             Toggle("Save CSV logs", isOn: $saveLogs)
 
             ForEach(Scenario.all, id: \.kind) { scenario in
-                Button {
-                    Task { await run(scenario.kind) }
+                NavigationLink {
+                    ScenarioReplayView(scenario: scenario, existingRun: runs[scenario.kind]) { run in
+                        record(run)
+                    }
                 } label: {
-                    ScenarioRow(scenario: scenario, run: runs[scenario.kind], isRunning: running == scenario.kind)
+                    ScenarioRow(scenario: scenario, run: runs[scenario.kind],
+                                isRunning: runningAll == scenario.kind)
                 }
-                .disabled(running != nil)
+                .disabled(runningAll != nil)
             }
 
-            Button("Run all") {
+            Button("Run all (pass/fail only)") {
                 Task {
-                    for scenario in Scenario.all { await run(scenario.kind) }
+                    for scenario in Scenario.all {
+                        await runQuietly(scenario.kind)
+                    }
                 }
             }
-            .disabled(running != nil)
+            .disabled(runningAll != nil)
 
             DisclaimerBanner()
                 .listRowBackground(Color.clear)
@@ -37,18 +43,22 @@ struct SimulationView: View {
         .navigationTitle("Simulation")
     }
 
-    private func run(_ kind: ScenarioKind) async {
-        running = kind
+    private func record(_ run: SimulationRun) {
+        runs[run.scenario.kind] = run
+        if saveLogs {
+            LogStore.save(simulation: run)
+        }
+    }
+
+    private func runQuietly(_ kind: ScenarioKind) async {
+        runningAll = kind
         let start = Date().timeIntervalSince1970
         let seed = UInt64.random(in: 1...100_000)   // fresh random noise every run
         let result = await Task.detached(priority: .userInitiated) {
             Simulator.run(kind, seed: seed, startTime: start)
         }.value
-        runs[kind] = result
-        if saveLogs {
-            LogStore.save(simulation: result)
-        }
-        running = nil
+        record(result)
+        runningAll = nil
     }
 }
 
@@ -77,7 +87,7 @@ private struct ScenarioRow: View {
             Text("Should: \(scenario.expectationText)")
                 .font(.caption2)
             if let run {
-                Text("Result (seed \(run.seed)): \(run.summary)")
+                Text("Last run: \(run.summary)")
                     .font(.caption2)
             }
         }
